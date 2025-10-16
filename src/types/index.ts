@@ -1,15 +1,42 @@
 // Timer Types
+export enum TimerMode {
+  IDLE = 'IDLE',
+  WORKING = 'WORKING',
+  BREAK_REMINDER = 'BREAK_REMINDER',
+  PAUSED = 'PAUSED',
+}
+
 export interface TimerState {
+  // Legacy fields (preserved for compatibility)
   duration: number
   isRunning: boolean
   startTime: number | null
+
+  // New state machine fields
+  timerMode: TimerMode
+  elapsedTime: number // Seconds elapsed in current phase
+  sessionCount: number // Completed work+break cycles
+  currentPhase: 'work' | 'break' | null
+  startTimestamp: number | null // High-resolution timestamp for RAF
 }
 
 export interface TimerActions {
+  // Legacy actions (preserved)
   start: () => void
   pause: () => void
   reset: () => void
   setDuration: (duration: number) => void
+
+  // New state machine actions
+  startWork: () => void
+  startBreak: () => void
+  pauseTimer: () => void
+  resumeTimer: () => void
+  resetTimer: () => void
+  incrementSession: () => void
+  updateElapsedTime: (elapsed: number) => void
+  transitionToBreak: () => void
+  transitionToIdle: () => void
 }
 
 export type TimerStore = TimerState & TimerActions
