@@ -69,12 +69,28 @@ export interface SettingsState {
   soundEnabled: boolean
   breakDuration: number
   workDuration: number
+  // Notification System settings (Increment 5)
+  browserNotificationEnabled: boolean
+  audioEnabled: boolean
+  vibrationEnabled: boolean
+  audioVolume: number // 0-100
 }
 
 export interface SettingsActions {
   updateSettings: (settings: Partial<SettingsState>) => void
   toggleTheme: () => void
   toggleNotifications: () => void
+  updateNotificationSettings: (
+    settings: Partial<
+      Pick<
+        SettingsState,
+        | 'browserNotificationEnabled'
+        | 'audioEnabled'
+        | 'vibrationEnabled'
+        | 'audioVolume'
+      >
+    >
+  ) => void
 }
 
 export type SettingsStore = SettingsState & SettingsActions

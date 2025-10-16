@@ -10,6 +10,11 @@ export const useSettingsStore = create<SettingsStore>()(
       soundEnabled: true,
       breakDuration: 300, // 5 minutes
       workDuration: 1200, // 20 minutes
+      // Notification System settings (Increment 5)
+      browserNotificationEnabled: true,
+      audioEnabled: true,
+      vibrationEnabled: true,
+      audioVolume: 70,
 
       updateSettings: settings =>
         set(state => ({
@@ -30,6 +35,12 @@ export const useSettingsStore = create<SettingsStore>()(
       toggleNotifications: () =>
         set(state => ({
           notifications: !state.notifications,
+        })),
+
+      updateNotificationSettings: settings =>
+        set(state => ({
+          ...state,
+          ...settings,
         })),
     }),
     {
