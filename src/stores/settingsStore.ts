@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { SettingsStore } from '../types'
+import { DEFAULT_EXERCISE_PREFERENCES } from '../config/exerciseConfig'
 
 export const useSettingsStore = create<SettingsStore>()(
   persist(
@@ -15,6 +16,8 @@ export const useSettingsStore = create<SettingsStore>()(
       audioEnabled: true,
       vibrationEnabled: true,
       audioVolume: 70,
+      // Exercise preferences (Increment 4)
+      exercisePreferences: DEFAULT_EXERCISE_PREFERENCES,
 
       updateSettings: settings =>
         set(state => ({
@@ -41,6 +44,14 @@ export const useSettingsStore = create<SettingsStore>()(
         set(state => ({
           ...state,
           ...settings,
+        })),
+
+      updateExercisePreferences: preferences =>
+        set(state => ({
+          exercisePreferences: {
+            ...state.exercisePreferences,
+            ...preferences,
+          },
         })),
     }),
     {

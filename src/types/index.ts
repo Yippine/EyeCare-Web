@@ -74,6 +74,13 @@ export interface SettingsState {
   audioEnabled: boolean
   vibrationEnabled: boolean
   audioVolume: number // 0-100
+  // Exercise preferences (Increment 4)
+  exercisePreferences: {
+    preferredExercise: string | null
+    autoLaunch: boolean
+    reducedMotion: boolean
+    enableManualSelection: boolean
+  }
 }
 
 export interface SettingsActions {
@@ -90,6 +97,14 @@ export interface SettingsActions {
         | 'audioVolume'
       >
     >
+  ) => void
+  updateExercisePreferences: (
+    preferences: Partial<{
+      preferredExercise: string | null
+      autoLaunch: boolean
+      reducedMotion: boolean
+      enableManualSelection: boolean
+    }>
   ) => void
 }
 
