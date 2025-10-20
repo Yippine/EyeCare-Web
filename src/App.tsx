@@ -2,6 +2,7 @@ import { RouterProvider } from 'react-router-dom'
 import { router } from './router'
 import { useNotification } from './hooks/useNotification'
 import { NotificationPopup } from './components/NotificationPopup'
+import { UpdateNotification } from './components/pwa/UpdateNotification'
 
 function App() {
   const { popupState, dismissPopup } = useNotification()
@@ -15,6 +16,7 @@ function App() {
         type={popupState.type}
         onDismiss={dismissPopup}
       />
+      <UpdateNotification />
     </>
   )
 }

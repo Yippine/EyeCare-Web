@@ -1,6 +1,7 @@
 import { useSettingsStore } from '../stores/settingsStore'
 import { NotificationSettings } from '../components/Settings/NotificationSettings'
 import { useNotification } from '../hooks/useNotification'
+import { InstallPrompt } from '../components/pwa/InstallPrompt'
 
 export default function Settings() {
   const { theme, notifications, toggleTheme, toggleNotifications } =
@@ -15,6 +16,9 @@ export default function Settings() {
       </p>
 
       <div className="space-y-6">
+        {/* PWA Install Prompt */}
+        <InstallPrompt variant="banner" />
+
         {/* Notification Settings Section */}
         <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-lg">
           <NotificationSettings
