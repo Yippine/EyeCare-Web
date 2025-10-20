@@ -142,3 +142,8 @@ vite.config.ts.timestamp-*
 .claude
 FORMULA.md
 !docs/formula.md
+
+# Playwright test results
+test-results/
+playwright-report/
+.playwright/
