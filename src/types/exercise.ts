@@ -134,16 +134,6 @@ export interface ExerciseProps {
 }
 
 /**
- * Ball tracking animation paths
- */
-export enum BallTrackingPath {
-  HORIZONTAL = 'horizontal',
-  VERTICAL = 'vertical',
-  CIRCULAR = 'circular',
-  FIGURE_EIGHT = 'figure8',
-}
-
-/**
  * Near-far focus states
  */
 export enum FocusState {

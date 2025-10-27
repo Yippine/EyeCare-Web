@@ -66,11 +66,17 @@ export const ExerciseOverlay: React.FC<ExerciseOverlayProps> = ({
   // Handle exercise completion
   const handleComplete = () => {
     completeExercise()
-    // Close overlay after brief delay
+    // Close overlay after 3 seconds (auto-close)
     setTimeout(() => {
       resetExercise()
       if (onClose) onClose()
-    }, 1000)
+    }, 3000)
+  }
+
+  // Handle manual completion dismiss
+  const handleCompletionDismiss = () => {
+    resetExercise()
+    if (onClose) onClose()
   }
 
   // Handle manual exercise selection
@@ -123,7 +129,7 @@ export const ExerciseOverlay: React.FC<ExerciseOverlayProps> = ({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[9999] bg-white dark:bg-gray-900"
+        className="fixed inset-0 z-[9999] bg-white dark:bg-gray-900 overflow-hidden"
         style={gpuAcceleratedStyle}
         variants={prefersReducedMotion ? {} : fadeVariants}
         initial="hidden"
@@ -210,7 +216,7 @@ export const ExerciseOverlay: React.FC<ExerciseOverlayProps> = ({
         )}
 
         {/* Exercise content */}
-        <div className="w-full h-full">
+        <div className="w-full h-full overflow-hidden">
           <Suspense fallback={<LoadingFallback />}>{renderExercise()}</Suspense>
         </div>
 
@@ -224,7 +230,7 @@ export const ExerciseOverlay: React.FC<ExerciseOverlayProps> = ({
         <AnimatePresence>
           {exerciseState === ExerciseState.COMPLETED && (
             <motion.div
-              className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm pointer-events-none"
+              className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -235,12 +241,32 @@ export const ExerciseOverlay: React.FC<ExerciseOverlayProps> = ({
                 animate={{ scale: 1, y: 0 }}
                 transition={{ type: 'spring', stiffness: 300 }}
               >
+                {/* Celebration icon */}
                 <div className="text-6xl mb-4">🎉</div>
+
+                {/* Title */}
                 <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
                   Well Done!
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300">
+
+                {/* Message */}
+                <p className="text-gray-600 dark:text-gray-300 mb-6">
                   Exercise completed successfully
+                </p>
+
+                {/* Continue button */}
+                <motion.button
+                  onClick={handleCompletionDismiss}
+                  className="px-8 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Continue
+                </motion.button>
+
+                {/* Auto-close hint */}
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
+                  Auto-closing in 3 seconds...
                 </p>
               </motion.div>
             </motion.div>

@@ -1,178 +1,165 @@
 /**
  * Ball Tracking Exercise Component
- * Formula: BallTracking = PathGenerator × MotionComponent × ProgressTracker
+ * Formula: BallTracking = PhysicsEngine × MotionComponent × ProgressTracker
  *
- * Implements smooth ball tracking animation with randomized paths
+ * Implements physics-based ball tracking with random bounces
  * Scientific basis: Far-point focusing reduces ciliary muscle strain
+ *
+ * Performance Optimizations:
+ * - Ref-based state management (避免 re-render)
+ * - GPU-accelerated rendering (controls.set)
+ * - Delta time normalization (恆速運動)
+ * - Enabled performance monitoring
  */
 
-import { motion, useAnimation } from 'framer-motion'
-import { useEffect, useState, useMemo } from 'react'
+import { motion, useAnimationFrame, useMotionValue } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 import type { ExerciseProps } from '../../types/exercise'
-import { BallTrackingPath } from '../../types/exercise'
 import { gpuAcceleratedStyle } from '../../config/animationVariants'
 import { useAnimationFeatures } from '../../hooks/useAnimationPerformance'
 
+// ============================================================
+// Physics Configuration
+// ============================================================
+
 /**
- * Generate animation path based on path type
- * Formula: generatePath(pathType) -> keyframes
+ * Ball size configuration
+ * Ball is w-16 h-16 = 64px, radius = 32px
  */
-const generatePath = (pathType: BallTrackingPath) => {
-  const centerX = 50
-  const centerY = 50
-  const amplitude = 35 // Move within 15-85% range
+const BALL_RADIUS = 32 // px (half of w-16 h-16 = 64px)
 
-  switch (pathType) {
-    case BallTrackingPath.HORIZONTAL:
-      return {
-        x: [
-          `${centerX - amplitude}%`,
-          `${centerX + amplitude}%`,
-          `${centerX - amplitude}%`,
-        ],
-        y: [`${centerY}%`, `${centerY}%`, `${centerY}%`],
-      }
+/**
+ * Physics configuration
+ * Formula: speed = 440 px/s (2x from 220 px/s, ~3x from original 150 px/s)
+ * Range: 400-500 px/s
+ */
+const BALL_SPEED = 440 // px/s
 
-    case BallTrackingPath.VERTICAL:
-      return {
-        x: [`${centerX}%`, `${centerX}%`, `${centerX}%`],
-        y: [
-          `${centerY - amplitude}%`,
-          `${centerY + amplitude}%`,
-          `${centerY - amplitude}%`,
-        ],
-      }
+/**
+ * Safety margins for ball movement (accounting for ball radius)
+ * Formula: SafetyMargins = {left, right, top, bottom} + BALL_RADIUS
+ * This ensures the entire ball stays within viewport
+ */
+const SAFETY_MARGINS = {
+  left: BALL_RADIUS + 8, // 32 + 8 = 40px total margin
+  right: BALL_RADIUS + 8,
+  top: BALL_RADIUS + 8,
+  bottom: 120 + BALL_RADIUS, // Extra space for progress bar + ball radius
+}
 
-    case BallTrackingPath.CIRCULAR:
-      return {
-        x: [
-          `${centerX}%`,
-          `${centerX + amplitude}%`,
-          `${centerX}%`,
-          `${centerX - amplitude}%`,
-          `${centerX}%`,
-        ],
-        y: [
-          `${centerY - amplitude}%`,
-          `${centerY}%`,
-          `${centerY + amplitude}%`,
-          `${centerY}%`,
-          `${centerY - amplitude}%`,
-        ],
-      }
+/**
+ * Ball state interface
+ * Formula: BallState = {x, y, vx, vy, speed}
+ */
+interface BallState {
+  x: number // Current x position (px)
+  y: number // Current y position (px)
+  vx: number // Velocity x component (px/s)
+  vy: number // Velocity y component (px/s)
+  speed: number // Constant speed magnitude (px/s)
+}
 
-    case BallTrackingPath.FIGURE_EIGHT:
-      return {
-        x: [
-          `${centerX}%`,
-          `${centerX + amplitude * 0.7}%`,
-          `${centerX}%`,
-          `${centerX - amplitude * 0.7}%`,
-          `${centerX}%`,
-        ],
-        y: [
-          `${centerY}%`,
-          `${centerY - amplitude * 0.5}%`,
-          `${centerY}%`,
-          `${centerY + amplitude * 0.5}%`,
-          `${centerY}%`,
-        ],
-      }
+/**
+ * Physics bounds interface
+ * Formula: PhysicsBounds = {left, right, top, bottom}
+ */
+interface PhysicsBounds {
+  left: number
+  right: number
+  top: number
+  bottom: number
+}
 
-    default:
-      return generatePath(BallTrackingPath.HORIZONTAL)
+// ============================================================
+// Physics Engine Functions
+// ============================================================
+
+/**
+ * Calculate physics bounds from window size
+ * Formula: calculateBounds(window) -> PhysicsBounds
+ */
+const calculateBounds = (): PhysicsBounds => {
+  return {
+    left: SAFETY_MARGINS.left,
+    right: window.innerWidth - SAFETY_MARGINS.right,
+    top: SAFETY_MARGINS.top,
+    bottom: window.innerHeight - SAFETY_MARGINS.bottom,
   }
 }
 
-interface BallTrackingProps extends ExerciseProps {
-  pathType?: BallTrackingPath
+/**
+ * Initialize ball with random position and direction
+ * Formula: initializeBall(bounds) -> BallState
+ */
+const initializeBall = (bounds: PhysicsBounds): BallState => {
+  const x = bounds.left + Math.random() * (bounds.right - bounds.left)
+  const y = bounds.top + Math.random() * (bounds.bottom - bounds.top)
+  const angle = Math.random() * 2 * Math.PI
+
+  return {
+    x,
+    y,
+    vx: Math.cos(angle) * BALL_SPEED,
+    vy: Math.sin(angle) * BALL_SPEED,
+    speed: BALL_SPEED,
+  }
 }
 
-export const BallTracking: React.FC<BallTrackingProps> = ({
+/**
+ * Physics functions are inlined in useAnimationFrame for performance
+ * Formula: updatePosition = position += velocity × deltaTime (inline)
+ * Formula: detectCollision = boundary checks (inline)
+ * Formula: calculateBounce = reflection × deviation × normalization (inline)
+ */
+
+export const BallTracking: React.FC<ExerciseProps> = ({
   onComplete,
-  onPause,
-  onResume,
   duration = 20,
   isPaused = false,
-  pathType,
 }) => {
-  const controls = useAnimation()
+  useAnimationFeatures(true) // Enable performance monitoring
+
+  // Progress tracking state (for percentage display only)
   const [progress, setProgress] = useState(0)
   const [startTime, setStartTime] = useState<number | null>(null)
   const [pausedTime, setPausedTime] = useState<number>(0)
-  const { prefersReducedMotion } = useAnimationFeatures()
 
-  // Select random path type if not specified
-  const selectedPath = useMemo(() => {
-    if (pathType) return pathType
+  // Use refs to store stable callback references (避免 useEffect 依賴)
+  const onCompleteRef = useRef(onComplete)
 
-    const paths = Object.values(BallTrackingPath)
-    return paths[Math.floor(Math.random() * paths.length)]
-  }, [pathType])
+  // Physics state (using refs to avoid re-renders)
+  const ballStateRef = useRef<BallState | null>(null)
+  const boundsRef = useRef<PhysicsBounds>(calculateBounds())
 
-  const path = useMemo(() => generatePath(selectedPath), [selectedPath])
+  // Motion values for GPU-accelerated rendering
+  const x = useMotionValue(0)
+  const y = useMotionValue(0)
 
-  // Handle animation lifecycle
+  // Progress tracking (for percentage display)
   useEffect(() => {
-    if (isPaused) {
-      controls.stop()
-      if (onPause) onPause()
-      return
-    }
+    if (isPaused) return
 
-    // Start or resume animation
     if (!startTime) {
       setStartTime(Date.now())
     }
 
-    if (onResume && pausedTime > 0) {
-      onResume()
-    }
+    const interval = setInterval(() => {
+      if (!startTime || isPaused) return
 
-    const animationDuration = prefersReducedMotion ? 2 : duration
+      const elapsed = (Date.now() - startTime - pausedTime) / 1000
+      const currentProgress = Math.min(elapsed / duration, 1)
+      setProgress(currentProgress)
 
-    controls.start({
-      x: path.x,
-      y: path.y,
-      transition: {
-        duration: animationDuration * (1 - progress), // Adjust for paused time
-        ease: 'linear',
-        repeat: 0,
-      },
-    })
-
-    // Track progress
-    const progressInterval = setInterval(() => {
-      if (startTime && !isPaused) {
-        const elapsed = (Date.now() - startTime - pausedTime) / 1000
-        const currentProgress = Math.min(elapsed / duration, 1)
-        setProgress(currentProgress)
-
-        if (currentProgress >= 1) {
-          clearInterval(progressInterval)
-          if (onComplete) onComplete()
-        }
+      if (currentProgress >= 1) {
+        clearInterval(interval)
+        if (onCompleteRef.current) onCompleteRef.current()
       }
-    }, 100)
+    }, 100) // Update every 100ms for smooth percentage display
 
-    return () => {
-      clearInterval(progressInterval)
-    }
-  }, [
-    isPaused,
-    controls,
-    path,
-    duration,
-    startTime,
-    pausedTime,
-    progress,
-    onComplete,
-    onPause,
-    onResume,
-    prefersReducedMotion,
-  ])
+    return () => clearInterval(interval)
+  }, [isPaused, startTime, pausedTime, duration])
 
-  // Handle pause time tracking
+  // Handle pause/resume time tracking
   useEffect(() => {
     if (isPaused && startTime) {
       const pauseStart = Date.now()
@@ -182,8 +169,63 @@ export const BallTracking: React.FC<BallTrackingProps> = ({
     }
   }, [isPaused, startTime])
 
+  // Initialize ball state on mount
+  useEffect(() => {
+    // Calculate bounds and initialize ball
+    boundsRef.current = calculateBounds()
+    ballStateRef.current = initializeBall(boundsRef.current)
+
+    // Set initial position
+    x.set(ballStateRef.current.x)
+    y.set(ballStateRef.current.y)
+  }, [x, y])
+
+  // Physics animation loop (optimized for 60 FPS)
+  useAnimationFrame((_t, deltaTime) => {
+    if (isPaused || !ballStateRef.current) return
+
+    // Convert deltaTime from ms to seconds
+    const dt = deltaTime / 1000
+
+    const ball = ballStateRef.current
+    const bounds = boundsRef.current
+
+    // Update position (in-place for performance)
+    ball.x += ball.vx * dt
+    ball.y += ball.vy * dt
+
+    // Detect and handle collisions
+    const hitLeft = ball.x <= bounds.left
+    const hitRight = ball.x >= bounds.right
+    const hitTop = ball.y <= bounds.top
+    const hitBottom = ball.y >= bounds.bottom
+
+    if (hitLeft || hitRight || hitTop || hitBottom) {
+      // Reflect velocity
+      if (hitLeft || hitRight) ball.vx = -ball.vx
+      if (hitTop || hitBottom) ball.vy = -ball.vy
+
+      // Add random deviation (±30°)
+      const currentAngle = Math.atan2(ball.vy, ball.vx)
+      const randomDeviation = (Math.random() - 0.5) * (Math.PI / 3) // ±π/6
+      const newAngle = currentAngle + randomDeviation
+
+      // Normalize to maintain constant speed
+      ball.vx = Math.cos(newAngle) * ball.speed
+      ball.vy = Math.sin(newAngle) * ball.speed
+
+      // Clamp position to bounds
+      ball.x = Math.max(bounds.left, Math.min(bounds.right, ball.x))
+      ball.y = Math.max(bounds.top, Math.min(bounds.bottom, ball.y))
+    }
+
+    // Update visual position (GPU-accelerated, no re-render)
+    x.set(ball.x)
+    y.set(ball.y)
+  })
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 overflow-hidden">
       {/* Instructions */}
       <div className="absolute top-8 left-0 right-0 text-center">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
@@ -197,7 +239,7 @@ export const BallTracking: React.FC<BallTrackingProps> = ({
         </p>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar (使用 motion.div 動畫,無 re-render) */}
       <div className="absolute bottom-8 left-8 right-8">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-gray-600 dark:text-gray-300">
@@ -211,54 +253,32 @@ export const BallTracking: React.FC<BallTrackingProps> = ({
           <motion.div
             className="h-full bg-blue-500"
             initial={{ width: '0%' }}
-            animate={{ width: `${progress * 100}%` }}
-            transition={{ duration: 0.1 }}
+            animate={isPaused ? undefined : { width: '100%' }}
+            transition={{
+              duration: duration,
+              ease: 'linear',
+            }}
           />
         </div>
       </div>
 
-      {/* Tracking ball */}
+      {/* Tracking ball - positioned absolutely using physics coordinates (center point) */}
       <motion.div
-        className="absolute"
+        className="absolute w-16 h-16 rounded-full bg-blue-500 shadow-lg flex items-center justify-center"
         style={{
           ...gpuAcceleratedStyle,
-          left: '50%',
-          top: '50%',
-          marginLeft: '-30px',
-          marginTop: '-30px',
+          x,
+          y,
+          boxShadow: '0 4px 20px rgba(59, 130, 246, 0.5)',
+          // Offset by half ball size to position by center point
+          left: -BALL_RADIUS,
+          top: -BALL_RADIUS,
         }}
-        initial={{ x: path.x[0], y: path.y[0], scale: 1 }}
-        animate={controls}
       >
-        <div
-          className="w-16 h-16 rounded-full bg-blue-500 shadow-lg flex items-center justify-center"
-          style={{
-            boxShadow: '0 4px 20px rgba(59, 130, 246, 0.5)',
-          }}
-        >
-          <div className="w-12 h-12 rounded-full bg-blue-400 flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full bg-white opacity-50" />
-          </div>
+        <div className="w-12 h-12 rounded-full bg-blue-400 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-white opacity-50" />
         </div>
       </motion.div>
-
-      {/* Path indicator (subtle) */}
-      <div className="absolute inset-0 pointer-events-none opacity-10">
-        <svg className="w-full h-full">
-          <motion.circle
-            cx="50%"
-            cy="50%"
-            r="35%"
-            stroke="currentColor"
-            strokeWidth="2"
-            fill="none"
-            className="text-blue-500"
-            strokeDasharray={
-              selectedPath === BallTrackingPath.CIRCULAR ? '0' : '8 8'
-            }
-          />
-        </svg>
-      </div>
 
       {/* Pause indicator */}
       {isPaused && (

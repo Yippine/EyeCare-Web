@@ -7,7 +7,7 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { ExerciseProps } from '../../types/exercise'
 import { FocusState } from '../../types/exercise'
 import {
@@ -36,10 +36,22 @@ export const NearFarFocus: React.FC<NearFarFocusProps> = ({
   const [pausedTime, setPausedTime] = useState<number>(0)
   const { prefersReducedMotion } = useAnimationFeatures()
 
+  // Use refs to store stable callback references
+  const onCompleteRef = useRef(onComplete)
+  const onPauseRef = useRef(onPause)
+  const onResumeRef = useRef(onResume)
+
+  // Update refs when props change
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+    onPauseRef.current = onPause
+    onResumeRef.current = onResume
+  }, [onComplete, onPause, onResume])
+
   // Handle cycle progression
   useEffect(() => {
     if (isPaused) {
-      if (onPause) onPause()
+      if (onPauseRef.current) onPauseRef.current()
       return
     }
 
@@ -47,8 +59,8 @@ export const NearFarFocus: React.FC<NearFarFocusProps> = ({
       setStartTime(Date.now())
     }
 
-    if (onResume && pausedTime > 0) {
-      onResume()
+    if (onResumeRef.current && pausedTime > 0) {
+      onResumeRef.current()
     }
 
     const interval = setInterval(() => {
@@ -78,7 +90,7 @@ export const NearFarFocus: React.FC<NearFarFocusProps> = ({
       // Complete exercise
       if (currentProgress >= 1) {
         clearInterval(interval)
-        if (onComplete) onComplete()
+        if (onCompleteRef.current) onCompleteRef.current()
       }
     }, 100)
 
@@ -91,9 +103,6 @@ export const NearFarFocus: React.FC<NearFarFocusProps> = ({
     cycles,
     currentCycle,
     focusState,
-    onComplete,
-    onPause,
-    onResume,
   ])
 
   // Handle pause time tracking
@@ -107,7 +116,7 @@ export const NearFarFocus: React.FC<NearFarFocusProps> = ({
   }, [isPaused, startTime])
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-green-50 to-teal-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-green-50 to-teal-50 dark:from-gray-900 dark:to-gray-800 overflow-hidden">
       {/* Instructions */}
       <div className="absolute top-8 left-0 right-0 text-center">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">

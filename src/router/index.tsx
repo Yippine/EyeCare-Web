@@ -3,6 +3,7 @@ import Home from '../pages/Home'
 import Activities from '../pages/Activities'
 import Stats from '../pages/Stats'
 import Settings from '../pages/Settings'
+import NotFound from '../pages/NotFound'
 import Layout from '../components/layout/Layout'
 
 export const router = createBrowserRouter([
@@ -25,6 +26,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <Settings />,
+      },
+      {
+        path: '*',
+        element: <NotFound />,
       },
     ],
   },

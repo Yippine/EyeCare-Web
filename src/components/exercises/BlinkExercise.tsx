@@ -7,7 +7,7 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import type { ExerciseProps } from '../../types/exercise'
 import type { BlinkState } from '../../types/exercise'
 import {
@@ -36,7 +36,20 @@ export const BlinkExercise: React.FC<BlinkExerciseProps> = ({
   const [progress, setProgress] = useState(0)
   const [startTime, setStartTime] = useState<number | null>(null)
   const [showPrompt, setShowPrompt] = useState(true)
+  const [completed, setCompleted] = useState(false)
   const { prefersReducedMotion } = useAnimationFeatures()
+
+  // Use refs to store stable callback references
+  const onCompleteRef = useRef(onComplete)
+  const onPauseRef = useRef(onPause)
+  const onResumeRef = useRef(onResume)
+
+  // Update refs when props change
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+    onPauseRef.current = onPause
+    onResumeRef.current = onResume
+  }, [onComplete, onPause, onResume])
 
   const blinkDuration = 300 // 300ms per blink
 
@@ -84,38 +97,34 @@ export const BlinkExercise: React.FC<BlinkExerciseProps> = ({
     return () => clearInterval(promptInterval)
   }, [isPaused, blinkState.blinkCount, maxBlinks])
 
-  // Track progress
+  // Initialize start time once
   useEffect(() => {
-    if (isPaused) {
-      if (onPause) onPause()
-      return
-    }
-
     if (!startTime) {
       setStartTime(Date.now())
     }
+  }, []) // Run only once on mount
 
-    if (onResume) {
-      onResume()
+  // Handle pause/resume
+  useEffect(() => {
+    if (isPaused) {
+      if (onPauseRef.current) onPauseRef.current()
+    } else {
+      if (onResumeRef.current) onResumeRef.current()
     }
+  }, [isPaused])
 
+  // Track progress and handle completion
+  useEffect(() => {
     // Update progress based on blink count
     const currentProgress = blinkState.blinkCount / maxBlinks
     setProgress(currentProgress)
 
-    // Complete exercise when all blinks done
-    if (blinkState.blinkCount >= maxBlinks) {
-      if (onComplete) onComplete()
+    // Complete exercise when all blinks done (with completion guard)
+    if (blinkState.blinkCount >= maxBlinks && !completed) {
+      setCompleted(true)
+      if (onCompleteRef.current) onCompleteRef.current()
     }
-  }, [
-    isPaused,
-    startTime,
-    blinkState.blinkCount,
-    maxBlinks,
-    onComplete,
-    onPause,
-    onResume,
-  ])
+  }, [blinkState.blinkCount, maxBlinks, completed])
 
   // Keyboard interaction (spacebar to blink)
   useEffect(() => {
@@ -131,7 +140,7 @@ export const BlinkExercise: React.FC<BlinkExerciseProps> = ({
   }, [triggerBlink])
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 overflow-hidden">
       {/* Instructions */}
       <div className="absolute top-8 left-0 right-0 text-center">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">

@@ -76,7 +76,8 @@ export const SELECTION_CONFIG = {
   manualSelectionWindowDuration: 3000, // 3 seconds in milliseconds
 
   // History size for randomization (no repeats in last N exercises)
-  historySize: 5,
+  // With 3 exercises, historySize=2 ensures better distribution
+  historySize: 2,
 
   // Minimum time between same exercise (sessions)
   minRepeatInterval: 3,

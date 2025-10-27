@@ -36,6 +36,10 @@ export const useExerciseOrchestrator = () => {
   } = useExerciseStore()
 
   const isExerciseActive = useExerciseStore(exerciseSelectors.isExerciseActive)
+  const isManualSelectionAvailable = useExerciseStore(
+    exerciseSelectors.isManualSelectionAvailable
+  )
+  const { launchExercise } = useExerciseStore()
 
   const previousTimerMode = useRef<TimerMode>(timerMode)
   const exerciseStartTime = useRef<number | null>(null)
@@ -192,14 +196,36 @@ export const useExerciseOrchestrator = () => {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
+   * Auto-launch exercise after manual selection window expires
+   * Formula: !manualSelection & hasExercise & IDLE & BREAK -> launchExercise
+   */
+  useEffect(() => {
+    if (
+      !isManualSelectionAvailable &&
+      currentExercise &&
+      exerciseState === ExerciseState.IDLE &&
+      timerMode === TimerMode.BREAK_REMINDER
+    ) {
+      launchExercise(currentExercise)
+    }
+  }, [
+    isManualSelectionAvailable,
+    currentExercise,
+    exerciseState,
+    timerMode,
+    launchExercise,
+  ])
+
+  /**
    * Determine if overlay should be visible
-   * Formula: isVisible = (BREAK_REMINDER & (manualSelection | exerciseActive))
+   * Formula: isVisible = (BREAK_REMINDER & (manualSelection | exerciseActive | launching | completed))
    */
   const isExerciseOverlayVisible =
     timerMode === TimerMode.BREAK_REMINDER &&
     (isExerciseActive ||
       exerciseState === ExerciseState.LAUNCHING ||
-      exerciseState === ExerciseState.COMPLETED)
+      exerciseState === ExerciseState.COMPLETED ||
+      isManualSelectionAvailable)
 
   return {
     isExerciseOverlayVisible,

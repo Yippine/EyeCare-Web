@@ -1,6 +1,6 @@
 import { timerEventEmitter } from './eventEmitter'
 import { permissionManager } from './permissionManager'
-import { audioPlayer } from './audioPlayer'
+// Note: audioPlayer removed - audio files not available
 import { vibrationController } from './vibrationController'
 import { serviceWorkerManager } from './serviceWorkerManager'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -30,8 +30,8 @@ class NotificationManagerImpl implements INotificationManager {
     console.log('[NotificationManager] Initializing...')
 
     try {
-      // Load audio files
-      await audioPlayer.load()
+      // Note: Audio player removed - audio files not available
+      // Keeping other notification channels: visual, browser, vibration
 
       // Register ServiceWorker (only in production)
       await serviceWorkerManager.register()
@@ -117,11 +117,12 @@ class NotificationManagerImpl implements INotificationManager {
       this.showBrowserNotification(config.title, config.body, config.icon)
     }
 
-    // 3. Audio (only if enabled)
+    // 3. Audio - Disabled (audio files not available)
+    // Using visual and vibration feedback instead
     if (settings.audioEnabled) {
-      audioPlayer.play(config.type, settings.audioVolume).catch(error => {
-        console.error('[NotificationManager] Audio playback error:', error)
-      })
+      console.log(
+        '[NotificationManager] Audio notification requested but audio files not available'
+      )
     }
 
     // 4. Vibration (only if enabled AND supported)
@@ -216,8 +217,7 @@ class NotificationManagerImpl implements INotificationManager {
     this.unsubscribeFunctions.forEach(unsubscribe => unsubscribe())
     this.unsubscribeFunctions = []
 
-    // Stop any playing audio
-    audioPlayer.stop()
+    // Note: Audio player removed - no cleanup needed
 
     // Cancel any vibration
     vibrationController.cancel()
